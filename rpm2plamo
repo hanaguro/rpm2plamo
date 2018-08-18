@@ -1,0 +1,72 @@
+#!/bin/sh
+build="T1"
+
+# 作業ディレクトリを取得
+W=$PWD
+
+# RPMファイルの展開先ディレクトリを取得
+B=/tmp/rpm2plamo
+
+if [ $# -ne 1 ]; then
+	echo 'usage: '%0' " rpm package"'
+fi
+
+if grep x86_64 $1 > /dev/null; then
+   arch="x86_64"
+elif grep i386 $1 > /dev/null; then
+   arch="i386"
+elif grep noarch $1 > /dev/null; then
+   arch="noarch"
+else
+   echo "Unsupported architecture"
+   exit 255
+fi
+
+# rpmファイルかどうかを拡張子を参照してチェック
+# 最後の"."までを除外
+ext=${1##*.}
+if [ $ext != "rpm" ]; then
+	echo $1" is not RPM"
+	exit 255
+fi
+
+# 右から最後の"_"までを除外
+pkgbase=${1%%_*}
+# 文字列中の"-"を"_"に置換
+pkgbase=${pkgbase//-/_}
+
+
+# 左から最初の"_"までを除外
+ver=${1#*_}
+# 右から最後の"_"までを除外
+ver=${ver%_$arch.rpm}
+
+echo "pkgbase = " $pkgbase
+echo "ver = " $ver
+echo "arch = " $arch
+echo "build = " $build
+
+pkg=$pkgbase-$ver-$arch-$build.txz
+
+if [ -d $B ] ; then rm -rf $B ; fi ; mkdir -p $B
+cd $B
+
+rpm2cpio $W/$1 | cpio -id
+if [ $? != 0 ]; then
+	echo "rpm2cpio or cpio error"
+	exit 255
+fi
+
+/sbin/makepkg $W/$pkg
+if [ $? != 0 ]; then
+	echo "makepkg error"
+	exit 255
+fi
+
+/sbin/updatepkg -f $W/$pkg
+if [ $? != 0 ]; then
+	echo "updatepkg error"
+	exit 255
+fi
+
+exit 0
