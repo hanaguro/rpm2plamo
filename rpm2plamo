@@ -7,10 +7,26 @@ W=$PWD
 # RPMファイルの展開先ディレクトリを取得
 B=/tmp/rpm2plamo
 
-if [ $# -ne 1 ]; then
-	echo 'usage: '%0' " rpm package"'
+if [ $# -lt 1 ]; then
+	echo "usage: ${0##*/} RPM [install]"
+	exit 255
+elif [ $# -gt 2 ]; then
+	echo "usage: ${0##*/} RPM [install]"
+	exit 255
 fi
 
+install=0
+if [ $# -eq 2 ]; then
+	if [ $2 != "install" ]; then
+		echo "invalid argument \"$2\""
+		echo "usage: ${0##*/} RPM [install]"
+		exit 255
+	fi
+
+	install=1
+fi
+
+# アーキテクチャを取得
 if grep x86_64 $1 > /dev/null; then
    arch="x86_64"
 elif grep i386 $1 > /dev/null; then
@@ -38,7 +54,7 @@ pkgbase=${pkgbase//-/_}
 
 # 左から最初の"_"までを除外
 ver=${1#*_}
-# 右から最後の"_"までを除外
+# 右からアーキテクチャと拡張子を除外
 ver=${ver%_$arch.rpm}
 
 echo "pkgbase = " $pkgbase
@@ -63,10 +79,12 @@ if [ $? != 0 ]; then
 	exit 255
 fi
 
-/sbin/updatepkg -f $W/$pkg
-if [ $? != 0 ]; then
-	echo "updatepkg error"
-	exit 255
+if [ $install -eq 1 ]; then
+	/sbin/updatepkg -f $W/$pkg
+	if [ $? != 0 ]; then
+		echo "updatepkg error"
+		exit 255
+	fi
 fi
 
 exit 0
